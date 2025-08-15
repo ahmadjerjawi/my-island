@@ -59,7 +59,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         toast(`Attempting to join server: ${serverId.substring(0, 8)}...`);
-        window.location.href = `roblox://games/start?placeId=${PLACE_ID}&gameInstanceId=${serverId}`;
+        // Updated to open in new tab/window
+        window.open(`roblox://placeId=${PLACE_ID}&gameInstanceId=${serverId}`, '_blank');
         joinByIdInput.value = '';
     }
 
@@ -229,7 +230,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveJoinedServers();
 
         toast(`Joining Server: ${serverId.substring(0, 8)}...`);
-        window.location.href = `roblox://games/start?placeId=${PLACE_ID}&gameInstanceId=${serverId}`;
+        // Updated to use the new template format and open in new tab/window
+        window.open(`roblox://placeId=${PLACE_ID}&gameInstanceId=${serverId}`, '_blank');
         updateAndRender();
     }
 
