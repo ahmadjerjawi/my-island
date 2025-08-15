@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>My Island - Merchant Tracker</title>
+    <link rel="icon" href="logo.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+    <!-- Supabase Client Library -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<nav class="side-menu">
+  <div class="side-menu-main-group">
+    <a href="index.html" class="menu-button active-nav" id="nav-home" title="Home / Merchant Tracker">
+      <div class="home-logo"><img src="logo.png" alt="Logo"></div>
+      <div class="home-icon"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
+    </a>
+    <div class="separator"></div>
+    <a href="stocks.html" class="menu-button" id="nav-stocks" title="Stock Statistics">
+      <svg viewBox="0 0 24 24"><path d="M3 17h3v-7H3v7zm5 0h3V7H8v10zm5 0h3V10h-3v7zm5 0h3V4h-3v13z"/></svg>
+    </a>
+    <a href="calculator.html" class="menu-button" id="nav-calculator" title="Net Worth Calculator">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm4 4h-2v-2h2v2zm0-4h-2v-2h2v2zm4 4h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2zm-4-2v2h-2V7h2z"/></svg>
+    </a>
+  </div>
+  <div class="bottom-icons">
+    <a href="https://discord.com/invite/solstice" target="_blank" class="menu-button discord-link" title="Join our Discord!"><img src="https://www.svgrepo.com/show/353655/discord-icon.svg" alt="Discord"></a>
+  </div>
+</nav>
+
+<main class="content-container">
+  <div class="page-container active" id="merchant-page">
+    <div class="main-content">
+      <h2 class="section-title">🧭 Traveling Merchant Tracker</h2>
+
+      <div id="error-container" style="display:none;"></div>
+      <div class="info-box"><p>💡 <b>Timer out of sync?</b> If you see a merchant timer and in-game timer not out of sync by more than 5min send me to fix the server-id</p></div>
+
+      <div class="join-by-id-container">
+          <input type="text" id="join-by-id-input" class="form-input" placeholder="Paste a specific Server ID to join...">
+          <button id="join-by-id-btn" class="btn btn-success">Join by ID</button>
+      </div>
+
+      <div class="stats-grid" id="stats-grid-container" style="margin-bottom: 1.25rem;">
+          <div class="stat-card">
+              <div class="stat-value" id="active-merchants">0</div>
+              <div class="stat-label">Active Merchants</div>
+          </div>
+          <div class="stat-card">
+              <div class="stat-value" id="soon-merchants">0</div>
+              <div class="stat-label">Starting Soon</div>
+          </div>
+          <div class="stat-card">
+              <div class="stat-value" id="total-servers">0</div>
+              <div class="stat-label">Tracked Servers</div>
+          </div>
+          <div class="stat-card">
+              <div class="stat-value" id="total-players">0</div>
+              <div class="stat-label">Total Players</div>
+          </div>
+      </div>
+
+      <div class="merchant-controls">
+          <div class="control-group">
+              <label>Filter:</label>
+              <div class="chips" id="filter-buttons">
+                  <div class="chip active" data-filter="all">All</div>
+                  <div class="chip" data-filter="active">Active</div>
+                  <div class="chip" data-filter="starting_soon">Soon</div>
+                  <div class="chip" data-filter="far">Far</div>
+                  <div class="chip" data-filter="joined">Joined</div>
+              </div>
+          </div>
+          <div class="control-group">
+              <label for="sort-select">Sort by:</label>
+              <div class="custom-select-wrapper">
+                  <select id="sort-select">
+                      <option value="soonest">Soonest Event</option>
+                      <option value="furthest">Furthest Event</option>
+                      <option value="join_order">Join Order</option>
+                      <option value="player_high">Players (High to Low)</option>
+                      <option value="player_low">Players (Low to High)</option>
+                      <option value="oldest">Server Age (Oldest)</option>
+                      <option value="newest">Server Age (Newest)</option>
+                  </select>
+              </div>
+          </div>
+      </div>
+
+      <div id="loading-container" class="loading-container">
+          <div class="loader"></div>
+          <p>Finding servers...</p>
+      </div>
+
+      <div id="server-list-container" class="server-list" style="display:none;">
+          <!-- Server cards will be dynamically inserted here -->
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="common.js"></script>
+<script src="merchant.js"></script>
+</body>
+</html>

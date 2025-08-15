@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>My Island - Stock Analytics</title>
+    <link rel="icon" href="logo.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="side-menu">
+  <div class="side-menu-main-group">
+    <a href="index.html" class="menu-button" id="nav-home" title="Home / Merchant Tracker">
+      <div class="home-logo"><img src="logo.png" alt="Logo"></div>
+      <div class="home-icon"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
+    </a>
+    <div class="separator"></div>
+    <a href="stocks.html" class="menu-button active-nav" id="nav-stocks" title="Stock Statistics">
+      <svg viewBox="0 0 24 24"><path d="M3 17h3v-7H3v7zm5 0h3V7H8v10zm5 0h3V10h-3v7zm5 0h3V4h-3v13z"/></svg>
+    </a>
+    <a href="calculator.html" class="menu-button" id="nav-calculator" title="Net Worth Calculator">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm4 4h-2v-2h2v2zm0-4h-2v-2h2v2zm4 4h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2zm-4-2v2h-2V7h2z"/></svg>
+    </a>
+  </div>
+  <div class="bottom-icons">
+    <a href="https://discord.com/invite/solstice" target="_blank" class="menu-button discord-link" title="Join our Discord!"><img src="https://www.svgrepo.com/show/353655/discord-icon.svg" alt="Discord"></a>
+  </div>
+</nav>
+
+<main class="content-container">
+    <div class="page-container active" id="stocks-page">
+    <div class="main-content">
+      <h2 class="section-title">📈 Stock Statistics</h2>
+      <div id="stocks-loading-container" class="loading-container">
+          <div class="loader"></div>
+          <p>Loading Stock Data...</p>
+      </div>
+      <div id="analytics-content" style="display:none;">
+        <div class="controls">
+            <div class="control-panel">
+                <h4>Filters & Comparison</h4>
+                <div class="form-group date-range-container">
+                    <label>Time Range:</label>
+                    <button class="btn" id="date-range-btn" style="width:100%; text-transform:none; font-weight: normal; background-color: rgba(0,0,0,.3);">All Time</button>
+                    <div class="date-range-popout" id="date-range-popout" style="display:none;position:absolute;z-index:10;background:#1c1c1c;border:1px solid var(--border-glass);padding:1rem;border-radius:8px;"><label for="start-date">Start Date:</label><input type="date" id="start-date"><label for="end-date" style="margin-top:0.5rem;">End Date:</label><input type="date" id="end-date"><button class="btn" id="clear-dates-btn" style="width:100%; margin-top:1rem; background: #c0392b; color: #fff;">Clear</button></div>
+                </div>
+                <div class="toggle-switch-group"><label>Filter Mode: <span id="filter-mode-label">Include</span></label><label class="toggle-switch"><input type="checkbox" id="filter-mode-toggle"><span class="slider"></span></label></div>
+                <div class="form-group">
+                    <label>Select Tiles (click chips):</label>
+                    <div class="chips" id="tile-chip-container"></div>
+                </div>
+            </div>
+            <div class="control-panel">
+                <h4>Visualization & Export</h4>
+                <div class="form-group">
+                    <label>Data View:</label>
+                    <div class="chart-view-toggle"><button id="view-rarity" class="active">Rarity</button><button id="view-timeline">Timeline</button><button id="view-totals">Totals</button></div>
+                </div>
+                <div class="form-group">
+                    <label for="dist-chart-type">Distribution Chart Type:</label>
+                    <div class="custom-select-wrapper"><select id="dist-chart-type"><option value="doughnut">Doughnut</option><option value="pie">Pie</option><option value="bar">Bar</option></select></div>
+                </div>
+                 <input type="file" id="json-file-input" style="display:none;" accept=".json">
+                 <button class="btn" onclick="document.getElementById('json-file-input').click()">Load Custom JSON</button>
+                 <button class="btn btn-warning" onclick="exportStockData()">Export to CSV</button>
+            </div>
+        </div>
+        <div class="stats-grid" id="stats-grid"></div>
+        <div class="charts-container vertical-charts" id="charts-parent">
+            <div class="chart-card" id="main-chart-card"><h3>Tile Spawn Rarity</h3><div class="chart-container"><canvas id="main-chart"></canvas></div></div>
+            <div class="chart-card" id="dist-chart-card"><h3>Filtered Distribution</h3><div class="chart-container"><canvas id="distribution-chart"></canvas></div></div>
+        </div>
+      </div>
+      <div id="error-message" style="display:none; text-align:center; padding: 2rem; color:#e74c3c; background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 12px;"></div>
+    </div>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script src="common.js"></script>
+<script src="stocks.js"></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>My Island - Net Worth Calculator</title>
+    <link rel="icon" href="logo.png" type="image/png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="side-menu">
+  <div class="side-menu-main-group">
+    <a href="index.html" class="menu-button" id="nav-home" title="Home / Merchant Tracker">
+      <div class="home-logo"><img src="logo.png" alt="Logo"></div>
+      <div class="home-icon"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
+    </a>
+    <div class="separator"></div>
+    <a href="stocks.html" class="menu-button" id="nav-stocks" title="Stock Statistics">
+      <svg viewBox="0 0 24 24"><path d="M3 17h3v-7H3v7zm5 0h3V7H8v10zm5 0h3V10h-3v7zm5 0h3V4h-3v13z"/></svg>
+    </a>
+    <a href="calculator.html" class="menu-button active-nav" id="nav-calculator" title="Net Worth Calculator">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm4 4h-2v-2h2v2zm0-4h-2v-2h2v2zm4 4h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2zm-4-2v2h-2V7h2z"/></svg>
+    </a>
+  </div>
+  <div class="bottom-icons">
+    <a href="https://discord.com/invite/solstice" target="_blank" class="menu-button discord-link" title="Join our Discord!"><img src="https://www.svgrepo.com/show/353655/discord-icon.svg" alt="Discord"></a>
+  </div>
+</nav>
+
+<main class="content-container">
+    <div class="page-container active" id="calculator-page">
+        <div class="main-content">
+            <h2 class="section-title">💰 Net Worth Calculator</h2>
+            <div class="info-box"><p>Upload a screenshot for easy reference. You can drag & drop, paste from your clipboard, or use formats like <code>10k</code>, <code>1.5m</code>, etc.</p></div>
+
+            <div class="control-panel" style="margin-bottom: 1.25rem;">
+                <h4>Friends Online Boost</h4>
+                <div class="form-group">
+                    <label for="friends-slider">Friends Online: <span id="friends-count">0</span> (+<span id="friends-boost">0</span>%) <span style="font-style: italic; color: var(--text-muted);">(Boosts Resource Sell Value Only, This is for Maax)</span></label>
+                    <input type="range" id="friends-slider" min="0" max="7" value="0" step="1" oninput="updateFriendsSlider(this)">
+                </div>
+            </div>
+
+            <div class="calculator-layout">
+                <div class="image-upload-panel">
+                    <div class="image-upload-header">
+                       <h4>Your Screenshot</h4>
+                       <button id="remove-image-btn" class="btn-tiny-danger" title="Remove Image" style="display: none;">×</button>
+                    </div>
+                    <div id="image-drop-zone" class="image-drop-zone">
+                        <p>Click, drag, or paste image here</p>
+                    </div>
+                    <img id="uploaded-image-preview" src="" alt="Your uploaded screenshot will appear here" class="image-preview">
+                    <input type="file" id="image-upload-input" accept="image/*" style="display:none;">
+                </div>
+
+                <div class="inputs-panel">
+                    <div class="control-panel">
+                        <h4>Liquid & Resource Assets</h4>
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label for="calc-cash">Current Cash</label>
+                            <input type="text" id="calc-cash" class="form-input" placeholder="0" oninput="calculateNetWorth()">
+                        </div>
+                        <div class="calculator-grid" id="resource-calculator-grid"></div>
+                    </div>
+
+                    <div class="control-panel">
+                        <div class="calculator-section-header">
+                            <h4>Owned Tile Assets</h4>
+                            <label class="toggle-switch-group" style="margin-bottom: 0;">
+                                <span style="font-size: 0.9em; color: var(--text-muted); margin-right: 8px;">Include</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="include-tiles-toggle" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </label>
+                        </div>
+                        <div class="calculator-grid" id="tile-calculator-grid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-panel calculator-results">
+                <div class="results-actions">
+                    <button class="btn btn-danger" onclick="clearCalculator()">Clear All</button>
+                </div>
+                <h3>Total Net Worth: <span id="total-net-worth">$0</span> <span id="total-net-worth-short"></span></h3>
+            </div>
+        </div>
+    </div>
+</main>
+<script src="common.js"></script>
+<script src="calculator.js"></script>
+</body>
+</html>
