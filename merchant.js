@@ -5,11 +5,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const PLACE_ID = '118648755816733';
 
     // --- TIMER LOGIC ---
-    const FULL_CYCLE_DURATION = 45 * 60;
+    const WAIT_PERIOD = 45 * 60;
     const EVENT_DURATION = 15 * 60;
-    const INITIAL_WAIT_PERIOD = 45 * 60;
+    const SINGLE_EVENT_CYCLE = WAIT_PERIOD + EVENT_DURATION; // 60 minutes
+    const FULL_CYCLE_DURATION = SINGLE_EVENT_CYCLE * 2;      // 120 minutes total
     const WARNING_PERIOD = 5 * 60;
     const MAX_PLAYERS = 8;
+    const JOINED_SERVER_GRACE_PERIOD = 45 * 60 * 1000; // 45 minutes in milliseconds
 
     // --- STATE ---
     let serverData = [];
@@ -59,8 +61,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         toast(`Attempting to join server: ${serverId.substring(0, 8)}...`);
-        // Updated to open in new tab/window
-        window.open(`roblox://placeId=${PLACE_ID}&gameInstanceId=${serverId}`, '_blank');
+        // --- MODIFIED: Changed to prevent opening a new tab ---
+        window.location.href = `roblox://placeId=${PLACE_ID}&gameInstanceId=${serverId}`;
         joinByIdInput.value = '';
     }
 
@@ -81,24 +83,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function getEventStatus(server) {
         const ageSeconds = (Date.now() - new Date(server.first_seen).getTime()) / 1000;
+        const timeInCycle = ageSeconds % FULL_CYCLE_DURATION;
+
         let status = { age: ageSeconds, cycles_since_seen: server.cycles_since_seen };
 
-        if (ageSeconds < INITIAL_WAIT_PERIOD) {
-            status.timeLabel = 'Arrives In:';
-            status.timeRemaining = INITIAL_WAIT_PERIOD - ageSeconds;
-            status.phase = status.timeRemaining <= WARNING_PERIOD ? 'starting_soon' : 'far';
-        } else {
-            const effectiveAge = ageSeconds - INITIAL_WAIT_PERIOD;
-            const timeInCycle = effectiveAge % FULL_CYCLE_DURATION;
-
-            if (timeInCycle < EVENT_DURATION) {
+        if (timeInCycle < SINGLE_EVENT_CYCLE) {
+            const timeInFirstHalf = timeInCycle;
+            if (timeInFirstHalf < WAIT_PERIOD) {
+                status.timeLabel = 'Arrives In:';
+                status.timeRemaining = WAIT_PERIOD - timeInFirstHalf;
+                status.phase = status.timeRemaining <= WARNING_PERIOD ? 'starting_soon' : 'far';
+            } else {
                 status.phase = 'active';
                 status.timeLabel = 'Leaves In:';
-                status.timeRemaining = EVENT_DURATION - timeInCycle;
-            } else {
+                status.timeRemaining = SINGLE_EVENT_CYCLE - timeInFirstHalf;
+            }
+        } else {
+            const timeInSecondHalf = timeInCycle - SINGLE_EVENT_CYCLE;
+            if (timeInSecondHalf < WAIT_PERIOD) {
                 status.timeLabel = 'Arrives In:';
-                status.timeRemaining = FULL_CYCLE_DURATION - timeInCycle;
+                status.timeRemaining = WAIT_PERIOD - timeInSecondHalf;
                 status.phase = status.timeRemaining <= WARNING_PERIOD ? 'starting_soon' : 'far';
+            } else {
+                status.phase = 'active';
+                status.timeLabel = 'Leaves In:';
+                status.timeRemaining = FULL_CYCLE_DURATION - timeInCycle;
             }
         }
         return { ...server, ...status };
@@ -109,13 +118,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let processed = serverData.map(getEventStatus);
 
+        const serversToDelete = [];
         joinedServers.forEach((data, serverId) => {
             const currentServer = processed.find(s => s.server_id === serverId);
-            if (!currentServer || currentServer.phase !== data.phase) {
-                joinedServers.delete(serverId);
-                saveJoinedServers();
+            const timeSinceJoined = Date.now() - data.joinedAt;
+
+            if (!currentServer || timeSinceJoined > JOINED_SERVER_GRACE_PERIOD) {
+                serversToDelete.push(serverId);
             }
         });
+
+        if (serversToDelete.length > 0) {
+            serversToDelete.forEach(serverId => joinedServers.delete(serverId));
+            saveJoinedServers();
+        }
 
         processed = processed.map(server => ({
             ...server,
@@ -230,8 +246,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveJoinedServers();
 
         toast(`Joining Server: ${serverId.substring(0, 8)}...`);
-        // Updated to use the new template format and open in new tab/window
-        window.open(`roblox://placeId=${PLACE_ID}&gameInstanceId=${serverId}`, '_blank');
+        // --- MODIFIED: Changed to prevent opening a new tab ---
+        window.location.href = `roblox://placeId=${PLACE_ID}&gameInstanceId=${serverId}`;
         updateAndRender();
     }
 
@@ -268,5 +284,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function formatTime(s) { return `${String(Math.floor(s/60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`; }
-    function formatAge(s) { const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); return h > 0 ? `${h}h ${m}m` : `${m}m`; }
+    function formatAge(s) { const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); return h > 0 ? `${h}h ${m}` : `${m}m`; }
 });
