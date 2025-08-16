@@ -81,22 +81,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     function getEventStatus(server) {
         const ageSeconds = (Date.now() - new Date(server.first_seen).getTime()) / 1000;
 
-        // Remainder in the 45-minute cycle
-        const remainder = ageSeconds % WAIT_PERIOD;
-
         let status = { age: ageSeconds, cycles_since_seen: server.cycles_since_seen };
 
-        if (remainder < EVENT_DURATION) {
-            // Active phase (first 15 minutes of each 45-minute segment)
-            status.phase = 'active';
-            status.timeLabel = 'Leaves In:';
-            status.timeRemaining = EVENT_DURATION - remainder;
-        } else {
-            // Waiting phase until next multiple of 45 minutes
-            const timeUntilNext = WAIT_PERIOD - remainder;
-            status.phase = timeUntilNext <= WARNING_PERIOD ? 'starting_soon' : 'far';
+        if (ageSeconds < WAIT_PERIOD) {
+            // Server is less than 45 minutes old - no event yet
+            status.phase = 'far';
             status.timeLabel = 'Arrives In:';
-            status.timeRemaining = timeUntilNext;
+            status.timeRemaining = WAIT_PERIOD - ageSeconds;
+        } else {
+            // Server is 45+ minutes old - calculate position in event cycle
+            const timeSinceFirstEvent = ageSeconds - WAIT_PERIOD;
+            const cyclePosition = timeSinceFirstEvent % (WAIT_PERIOD + EVENT_DURATION);
+
+            if (cyclePosition < EVENT_DURATION) {
+                // Event is active (first 15 minutes of the cycle)
+                status.phase = 'active';
+                status.timeLabel = 'Leaves In:';
+                status.timeRemaining = EVENT_DURATION - cyclePosition;
+            } else {
+                // Waiting for next event (remaining time in 60-minute cycle)
+                const timeUntilNext = (WAIT_PERIOD + EVENT_DURATION) - cyclePosition;
+                status.phase = timeUntilNext <= WARNING_PERIOD ? 'starting_soon' : 'far';
+                status.timeLabel = 'Arrives In:';
+                status.timeRemaining = timeUntilNext;
+            }
         }
 
         return { ...server, ...status };
