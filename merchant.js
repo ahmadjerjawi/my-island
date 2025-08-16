@@ -1,3 +1,6 @@
+// Enhanced client-side JavaScript for accurate server age tracking
+// Since scraper runs every minute, first_seen should be within ~1-2 minutes of actual server start
+
 document.addEventListener('DOMContentLoaded', async () => {
     // --- CONFIG ---
     const SUPABASE_URL = 'https://hrsbvguvsrdrjcukbdlc.supabase.co';
@@ -10,12 +13,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const WARNING_PERIOD = 5 * 60;  // 5 minutes warning
     const MAX_PLAYERS = 8;
     const JOINED_SERVER_GRACE_PERIOD = 45 * 60 * 1000; // 45 minutes in milliseconds
+    const CYCLE_DURATION = WAIT_PERIOD + EVENT_DURATION; // 60 minutes total
+
+    // Account for scraper detection delay (servers might exist 0-2 minutes before detection)
+    const DETECTION_DELAY_BUFFER = 90; // 1.5 minutes in seconds
 
     // --- STATE ---
     let serverData = [];
     let sortMode = 'soonest';
     let filterMode = 'all';
-    let joinedServers = new Map(); // Stores { serverId: { phase, joinedAt } }
+    let joinedServers = new Map();
 
     // --- UI ELEMENTS ---
     const loadingContainer = document.getElementById('loading-container');
@@ -65,9 +72,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     async function fetchData() {
         try {
-            const { data, error } = await sb.from('servers').select('*').eq('status', 'active');
+            // Only fetch servers that are:
+            // 1. Currently active (not inactive/dead)
+            // 2. Fresh data (seen in last scraper run - cycles_since_seen = 0)
+            const { data, error } = await sb
+                .from('servers')
+                .select('*')
+                .eq('status', 'active')
+                .eq('cycles_since_seen', 0);
+
             if (error) throw error;
-            serverData = data.filter(s => s.player_count < MAX_PLAYERS);
+
+            // Additional safety filters on the client side
+            serverData = (data || [])
+                .filter(s => s.status === 'active') // Double-check status
+                .filter(s => s.cycles_since_seen === 0) // Double-check freshness
+                .filter(s => s.player_count < MAX_PLAYERS) // Not full
+                .filter(s => s.player_count >= 0); // Valid player count
+
+            console.log(`Fetched ${serverData.length} valid servers`);
+
             loadingContainer.style.display = 'none';
             serverListContainer.style.display = 'flex';
             errorContainer.style.display = 'none';
@@ -79,35 +103,69 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function getEventStatus(server) {
-        const ageSeconds = (Date.now() - new Date(server.first_seen).getTime()) / 1000;
+        const now = Date.now();
+        const firstSeenTime = new Date(server.first_seen).getTime();
 
-        let status = { age: ageSeconds, cycles_since_seen: server.cycles_since_seen };
+        // Use raw age without buffer - your scraper is accurate enough
+        const serverAge = (now - firstSeenTime) / 1000;
 
-        if (ageSeconds < WAIT_PERIOD) {
+        let status = {
+            age: serverAge,
+            rawAge: serverAge,
+            cycles_since_seen: server.cycles_since_seen
+        };
+
+        if (serverAge < WAIT_PERIOD) {
             // Server is less than 45 minutes old - no event yet
             status.phase = 'far';
             status.timeLabel = 'Arrives In:';
-            status.timeRemaining = WAIT_PERIOD - ageSeconds;
+            status.timeRemaining = WAIT_PERIOD - serverAge;
         } else {
-            // Server is 45+ minutes old - calculate position in event cycle
-            const timeSinceFirstEvent = ageSeconds - WAIT_PERIOD;
-            const cyclePosition = timeSinceFirstEvent % (WAIT_PERIOD + EVENT_DURATION);
+            // Server is 45+ minutes old
+            // The 45min timer continues running even during the 15min event
+            const continuousTimer = serverAge % WAIT_PERIOD; // Position in the continuous 45min cycle
+            const timeUntilNextEvent = WAIT_PERIOD - continuousTimer;
 
-            if (cyclePosition < EVENT_DURATION) {
-                // Event is active (first 15 minutes of the cycle)
+            // Check if we're currently in an event period
+            const timeSinceFirstEvent = serverAge - WAIT_PERIOD;
+            const isInEventPeriod = timeSinceFirstEvent >= 0 && (timeSinceFirstEvent % WAIT_PERIOD) < EVENT_DURATION;
+
+            if (isInEventPeriod) {
+                // Event is currently active
+                const timeInCurrentEvent = timeSinceFirstEvent % WAIT_PERIOD;
                 status.phase = 'active';
                 status.timeLabel = 'Leaves In:';
-                status.timeRemaining = EVENT_DURATION - cyclePosition;
+                status.timeRemaining = EVENT_DURATION - timeInCurrentEvent;
             } else {
-                // Waiting for next event (remaining time in 60-minute cycle)
-                const timeUntilNext = (WAIT_PERIOD + EVENT_DURATION) - cyclePosition;
-                status.phase = timeUntilNext <= WARNING_PERIOD ? 'starting_soon' : 'far';
+                // Waiting for next event
+                status.phase = timeUntilNextEvent <= WARNING_PERIOD ? 'starting_soon' : 'far';
                 status.timeLabel = 'Arrives In:';
-                status.timeRemaining = timeUntilNext;
+                status.timeRemaining = timeUntilNextEvent;
             }
+
+            // Debug logging
+            console.log(`Debug - Age: ${Math.floor(serverAge/60)}min, ContinuousTimer: ${Math.floor(continuousTimer/60)}min, TimeUntilNext: ${Math.floor(timeUntilNextEvent/60)}min, InEvent: ${isInEventPeriod}`);
         }
 
+        // Add timing confidence indicator
+        status.confidence = calculateTimingConfidence(server, status);
+
         return { ...server, ...status };
+    }
+
+    function calculateTimingConfidence(server, status) {
+        // High confidence: Fresh server with reasonable player count for age
+        // Medium confidence: Older server or unusual player count
+        // Low confidence: Very high player count for young server (might have existed before detection)
+
+        const ageMinutes = status.rawAge / 60;
+        const playersPerMinute = server.player_count / Math.max(ageMinutes, 1);
+
+        if (server.cycles_since_seen > 0) return 'low'; // Stale data
+        if (ageMinutes < 10 && playersPerMinute > 1) return 'medium'; // Fast growth might indicate pre-existing server
+        if (ageMinutes < 5 && server.player_count > 6) return 'low'; // Too many players for very young server
+
+        return 'high';
     }
 
     function updateAndRender() {
@@ -115,6 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let processed = serverData.map(getEventStatus);
 
+        // Clean up joined servers list
         const serversToDelete = [];
         joinedServers.forEach((data, serverId) => {
             const currentServer = processed.find(s => s.server_id === serverId);
@@ -130,11 +189,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             saveJoinedServers();
         }
 
+        // Add joined status to processed servers
         processed = processed.map(server => ({
             ...server,
             joinedAt: joinedServers.get(server.server_id)?.joinedAt || 0
         }));
 
+        // Apply filters
         let displayList;
         if (filterMode === 'joined') {
             displayList = processed.filter(s => joinedServers.has(s.server_id));
@@ -144,6 +205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             displayList = processed.filter(s => !joinedServers.has(s.server_id));
         }
 
+        // Apply sorting
         displayList.sort((a, b) => {
             switch (sortMode) {
                 case 'oldest': return b.age - a.age;
@@ -191,10 +253,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function createServerCard(server, isJoined) {
         const card = document.createElement('div');
-        card.className = `server-card status-${server.phase}`;
+        card.className = `server-card status-${server.phase} confidence-${server.confidence}`;
         card.id = `server-${server.server_id}`;
 
-        const staleInfoHTML = server.cycles_since_seen > 0 ? `<span class="info-item stale-info" title="This server was not found in the last scan."><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Stale</span>` : '';
+        // Add confidence indicator for timing accuracy
+        let confidenceHTML = '';
+        if (server.confidence === 'medium') {
+            confidenceHTML = `<span class="info-item warning-info" title="Timing might be slightly inaccurate">
+                <svg viewBox="0 0 24 24" width="12" height="12"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>~
+            </span>`;
+        } else if (server.confidence === 'low') {
+            confidenceHTML = `<span class="info-item error-info" title="Timing may be inaccurate - server might be older than displayed">
+                <svg viewBox="0 0 24 24" width="12" height="12"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>?
+            </span>`;
+        }
+
         const joinButtonHTML = `<button class="btn btn-success join-btn" data-server-id="${server.server_id}">Join</button>`;
         const returnButtonHTML = isJoined ? `<button class="btn btn-warning return-btn" data-server-id="${server.server_id}">Return</button>` : '';
 
@@ -213,10 +286,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="server-info">
                         <span class="info-item" title="Player Count">${server.player_count}/${MAX_PLAYERS} Players</span>
                         <span class="info-item" title="Event Timer">${server.timeLabel} ${formatTime(server.timeRemaining)}</span>
-                        ${staleInfoHTML}
+                        ${confidenceHTML}
                     </div>
                     <div class="server-meta-info">
-                        <span>Age: ${formatAge(server.age)}</span>
+                        <span>Age: ${formatAge(server.rawAge)} ${server.rawAge !== server.age ? '(~' + formatAge(server.age) + ')' : ''}</span>
                         ${copyElementHTML}
                     </div>
                 </div>
@@ -232,6 +305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const serverId = e.target.dataset.serverId;
         const server = serverData.find(s => s.server_id === serverId);
         if (!server) return;
+
         const card = document.getElementById(`server-${serverId}`);
         card?.classList.add('highlighted');
         setTimeout(() => card?.classList.remove('highlighted'), 5000);
@@ -279,6 +353,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         errorContainer.style.display = 'block';
     }
 
-    function formatTime(s) { return `${String(Math.floor(s/60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`; }
-    function formatAge(s) { const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); return h > 0 ? `${h}h ${m}` : `${m}m`; }
+    function formatTime(s) {
+        const minutes = Math.floor(Math.abs(s) / 60);
+        const seconds = Math.floor(Math.abs(s) % 60);
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function formatAge(s) {
+        const hours = Math.floor(s / 3600);
+        const minutes = Math.floor((s % 3600) / 60);
+        return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+    }
+
+    // Initialize custom selects if the function exists
+    function initializeCustomSelects() {
+        // This function should be defined elsewhere in your code
+        if (typeof window.initializeCustomSelects === 'function') {
+            window.initializeCustomSelects();
+        }
+    }
+
+    // Toast notification function
+    function toast(message) {
+        // This function should be defined elsewhere in your code
+        if (typeof window.toast === 'function') {
+            window.toast(message);
+        } else {
+            console.log('Toast:', message);
+        }
+    }
 });
