@@ -5,11 +5,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const PLACE_ID = '118648755816733';
 
     // --- TIMER LOGIC ---
-    const WAIT_PERIOD = 45 * 60;
-    const EVENT_DURATION = 15 * 60;
-    const SINGLE_EVENT_CYCLE = WAIT_PERIOD + EVENT_DURATION; // 60 minutes
-    const FULL_CYCLE_DURATION = SINGLE_EVENT_CYCLE * 2;      // 120 minutes total
-    const WARNING_PERIOD = 5 * 60;
+    const WAIT_PERIOD = 45 * 60;    // 45 minutes in seconds
+    const EVENT_DURATION = 15 * 60; // 15 minutes in seconds
+    const WARNING_PERIOD = 5 * 60;  // 5 minutes warning
     const MAX_PLAYERS = 8;
     const JOINED_SERVER_GRACE_PERIOD = 45 * 60 * 1000; // 45 minutes in milliseconds
 
@@ -56,12 +54,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- FUNCTIONS ---
     function joinById() {
         const serverId = joinByIdInput.value.trim();
-        if (serverId.length < 36) { // Basic validation for GUID format
+        if (serverId.length < 36) {
             toast('Invalid Server ID format.');
             return;
         }
         toast(`Attempting to join server: ${serverId.substring(0, 8)}...`);
-        // --- MODIFIED: Changed to prevent opening a new tab ---
         window.location.href = `roblox://placeId=${PLACE_ID}&gameInstanceId=${serverId}`;
         joinByIdInput.value = '';
     }
@@ -83,33 +80,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function getEventStatus(server) {
         const ageSeconds = (Date.now() - new Date(server.first_seen).getTime()) / 1000;
-        const timeInCycle = ageSeconds % FULL_CYCLE_DURATION;
+
+        // Remainder in the 45-minute cycle
+        const remainder = ageSeconds % WAIT_PERIOD;
 
         let status = { age: ageSeconds, cycles_since_seen: server.cycles_since_seen };
 
-        if (timeInCycle < SINGLE_EVENT_CYCLE) {
-            const timeInFirstHalf = timeInCycle;
-            if (timeInFirstHalf < WAIT_PERIOD) {
-                status.timeLabel = 'Arrives In:';
-                status.timeRemaining = WAIT_PERIOD - timeInFirstHalf;
-                status.phase = status.timeRemaining <= WARNING_PERIOD ? 'starting_soon' : 'far';
-            } else {
-                status.phase = 'active';
-                status.timeLabel = 'Leaves In:';
-                status.timeRemaining = SINGLE_EVENT_CYCLE - timeInFirstHalf;
-            }
+        if (remainder < EVENT_DURATION) {
+            // Active phase (first 15 minutes of each 45-minute segment)
+            status.phase = 'active';
+            status.timeLabel = 'Leaves In:';
+            status.timeRemaining = EVENT_DURATION - remainder;
         } else {
-            const timeInSecondHalf = timeInCycle - SINGLE_EVENT_CYCLE;
-            if (timeInSecondHalf < WAIT_PERIOD) {
-                status.timeLabel = 'Arrives In:';
-                status.timeRemaining = WAIT_PERIOD - timeInSecondHalf;
-                status.phase = status.timeRemaining <= WARNING_PERIOD ? 'starting_soon' : 'far';
-            } else {
-                status.phase = 'active';
-                status.timeLabel = 'Leaves In:';
-                status.timeRemaining = FULL_CYCLE_DURATION - timeInCycle;
-            }
+            // Waiting phase until next multiple of 45 minutes
+            const timeUntilNext = WAIT_PERIOD - remainder;
+            status.phase = timeUntilNext <= WARNING_PERIOD ? 'starting_soon' : 'far';
+            status.timeLabel = 'Arrives In:';
+            status.timeRemaining = timeUntilNext;
         }
+
         return { ...server, ...status };
     }
 
@@ -246,7 +235,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveJoinedServers();
 
         toast(`Joining Server: ${serverId.substring(0, 8)}...`);
-        // --- MODIFIED: Changed to prevent opening a new tab ---
         window.location.href = `roblox://placeId=${PLACE_ID}&gameInstanceId=${serverId}`;
         updateAndRender();
     }
